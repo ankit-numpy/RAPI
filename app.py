@@ -1,27 +1,44 @@
-from flask import Flask , request , jsonify
-import numpy as np
+# app.py
+from flask import Flask, request, jsonify
 import joblib
-app= Flask(__name__)
-
+import numpy as np
+# Load the trained model from the saved file
 model = joblib.load("iris_model.pkl")
 
-@app.route('/')
-def hello_world():
-    return 'Hello, World!'
+# Initialize the Flask application
+app = Flask(__name__)
 
+@app.route("/")
+def home():
+    return "Iris Classifier API is Running!"  # Simple message to confirm the server is active
 
-@app.route("/predict", methods = ["POST"])
+@app.route("/predict", methods=["POST"])
 def predict():
-    data = request.get_json(force=True)
     try:
-        features = data["features"]
-    except KeyError:
-        return jsonify({"error": "Missing 'features' in request"}), 400
-    features = np.array(features).reshape(1,-1)
-    prediction  = model.predict(features)
-    classes = ["Setosa", "Versicolor", "Verginica"]
-    result = classes[prediction[0]]
-    return jsonify({"prediction": result})
+        # Extract JSON data from the incoming POST request
+        data = request.get_json(force=True)
 
-if __name__ == '__main__':
-    app.run(debug=True)
+        # Validate the input: Check if 'features' key exists and contains exactly 4 numerical values
+        if "features" not in data or len(data["features"]) != 4:
+            return jsonify({"error": "Exactly 4 numerical features are required"}), 400
+
+        # Convert the features list to a NumPy array and reshape it to (1, 4) for single-sample prediction
+        features = np.array(data["features"], dtype=float).reshape(1, -1)
+
+        # Use the model to predict the class (0, 1, or 2)
+        prediction = model.predict(features)[0]
+
+        # Map the numerical prediction to the corresponding species name
+        classes = ["setosa", "versicolor", "virginica"]
+        result = {"prediction": classes[prediction]}
+
+        # Return the result as a JSON response with HTTP status 200 (OK)
+        return jsonify(result)
+
+    except Exception as e:
+        # Handle any errors (e.g., invalid data types) and return an error message with HTTP status 400 (Bad Request)
+        return jsonify({"error": str(e)}), 400
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)  # Run the server on all interfaces on port 5000
